@@ -1,8 +1,8 @@
 #include <WiFi.h>
 #include <WiFiMulti.h>
 #include <Ultrasonic.h>
-#include <MySQL_Connection.h>
-#include <MySQL_Cursor.h>
+#include <HTTPClient.h>
+#include "config.h"
 
 #define echo 18
 #define trig 19
@@ -13,8 +13,7 @@ WiFiMulti wifiMulti;
 unsigned long duration;
 long distancia;
 int leiturasensor;
-const char* ssid = "Henrique";
-const char* password = "34055785";
+
 
 void setup() {
   pinMode(trig,OUTPUT);
@@ -22,7 +21,7 @@ void setup() {
   Serial.begin(9600);
   pinMode(SensorBoia, INPUT);
   pinMode(buser, OUTPUT);
-  wifiMulti.addAP(ssid, password);
+  wifiMulti.addAP(WIFI_SSID, PASSWORD_WIFI);
  Serial.println("Conectando ao Wi-Fi...");
   
   // Espera até se conectar a uma rede
@@ -64,6 +63,36 @@ void tom(int pino, int f, int duracao) {
   }
 }
 
+void post_data (float nivel)
+{
+  if(WiFi.status() == WL_CONNECTED)
+  {
+    HTTPClient http;
+    http.begin(URL_BACKEND);
+    http.addHeader("Content-Type","application/json");
+
+    String json = "{\"nivel\": " + String(nivel, 2) + "}";
+
+    Serial.println("Enviando o json: "+ json);
+    int httpResponseCode = http.POST(json);
+
+    if (httpResponseCode > 0) {
+      String response = http.getString();
+      Serial.println("Resposta do servidor: ");
+      Serial.println(response);
+      Serial.println(httpResponseCode);
+    } else {
+      Serial.print("Erro na requisição: ");
+      Serial.println(httpResponseCode);
+    }
+
+    http.end();
+  } else {
+    Serial.println("Wi-Fi desconectado. Não foi possível enviar os dados.");
+  }
+  
+}
+
 void loop() {
   digitalWrite(trig, LOW);
   delayMicroseconds(2);
@@ -83,6 +112,7 @@ void loop() {
     String currentTime = getCurrentTime();
     Serial.println("Horário do evento: " + currentTime);
     tom(buser, 440, time);
+    post_data(nivel);
   }
-  delay(000);
+  delay(5000);
 }
